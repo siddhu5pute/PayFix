@@ -1,16 +1,3 @@
-# ⚠️ TEMPORARY SECTION: copy, then delete this whole section and push again
-
-> This section holds our **test-mode** secrets and the walkthrough page so they can be copied to another laptop.
-> The repo is public: delete this section right after copying, and regenerate the Razorpay test key and
-> ngrok token after the project. Secrets stay in git history even after deletion.
-
-Then start: `docker compose --profile razorpay up --build -d`
-
-## B. Walkthrough page (`walkthrough.html`)
-
-Copy everything inside the block below into a file named `walkthrough.html` and open it in a browser.
-(PowerShell: `notepad walkthrough.html` → Yes → paste → save.)
-
 
 # ⚡ PayFix: Payment Reconciliation & Auto-Resolution
 
