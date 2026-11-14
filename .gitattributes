@@ -1,0 +1,4 @@
+# Keep LF everywhere: these files run inside Linux containers (a CRLF shell script breaks)
+* text=auto eol=lf
+*.pdf binary
+*.png binary
