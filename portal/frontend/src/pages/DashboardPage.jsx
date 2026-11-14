@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { engine, rupees, shortId, timeOf } from '../api.js'
-import { AuditTimeline, StatusChip, usePoll } from '../components/ui.jsx'
+import { AuditTimeline, CountUp, StatusChip, usePoll } from '../components/ui.jsx'
 
-function Stat({ label, value, tone }) {
+function Stat({ label, value, tone, format }) {
   return (
     <div className={`stat ${tone || ''}`}>
-      <div className="stat-v">{value ?? '—'}</div>
+      <div className="stat-v">{typeof value === 'number' ? <CountUp value={value} format={format} /> : (value ?? '—')}</div>
       <div className="stat-k">{label}</div>
     </div>
   )
@@ -44,7 +44,7 @@ export default function DashboardPage() {
         <Stat label="Marked paid / failed" value={stats ? `${stats.marked_paid} / ${stats.marked_failed}` : null} />
         <Stat label="Duplicate refunds" value={stats?.refunds} />
         <Stat label="Manual review" value={stats?.manual_review_open} tone={stats?.manual_review_open ? 'amber' : ''} />
-        <Stat label="Money un-stuck" value={stats ? rupees(stats.amount_recovered_paise) : null} tone="mint" />
+        <Stat label="Money un-stuck" value={stats ? Math.round(stats.amount_recovered_paise / 100) : null} format={v => '₹' + v.toLocaleString('en-IN')} tone="mint" />
       </div>
 
       <div className="dash-grid">

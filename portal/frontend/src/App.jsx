@@ -4,6 +4,7 @@ import StatusPage from './pages/StatusPage.jsx'
 import PaymentsPage from './pages/PaymentsPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import ControlRoom from './pages/ControlRoom.jsx'
+import FixToasts from './components/FixToasts.jsx'
 
 export default function App() {
   return (
@@ -13,7 +14,7 @@ export default function App() {
           <span className="logo">⚡</span>
           <div>
             <div className="brand-name">CampusPay</div>
-            <div className="brand-sub">Exam Fee Portal · watched by PayFix</div>
+            <div className="brand-sub"><span className="live-dot" /> Exam Fee Portal · watched live by PayFix</div>
           </div>
         </div>
         <nav>
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/control" element={<ControlRoom />} />
         </Routes>
       </main>
+      <FixToasts />
       <footer className="footer">
         PayFix · payment reconciliation & auto-resolution · Razorpay test mode only, no real money moves
       </footer>

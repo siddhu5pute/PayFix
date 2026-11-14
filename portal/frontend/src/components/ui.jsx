@@ -89,3 +89,91 @@ export function Toast({ msg, kind = 'info', onClose }) {
   if (!msg) return null
   return <div className={`toast toast-${kind}`} onClick={onClose}>{msg}</div>
 }
+
+// Smoothly animates a number from its previous value to the new one.
+export function useCountUp(target, ms = 900) {
+  const [val, setVal] = useState(0)
+  const fromRef = useRef(0)
+  useEffect(() => {
+    const to = Number(target) || 0
+    const from = fromRef.current
+    if (from === to) return
+    let raf
+    const start = performance.now()
+    const step = now => {
+      const t = Math.min(1, (now - start) / ms)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setVal(Math.round(from + (to - from) * eased))
+      if (t < 1) raf = requestAnimationFrame(step)
+      else fromRef.current = to
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target, ms])
+  return val
+}
+
+export function CountUp({ value, format = v => v.toLocaleString('en-IN') }) {
+  const v = useCountUp(value)
+  if (value === null || value === undefined) return '—'
+  return format(v)
+}
+
+const CONFETTI_COLORS = ['#2563EB', '#38BDF8', '#10B981', '#F59E0B', '#7C5CFF', '#F472B6']
+
+export function Confetti({ fire }) {
+  const [pieces, setPieces] = useState([])
+  useEffect(() => {
+    if (!fire) return
+    setPieces(Array.from({ length: 90 }, (_, i) => ({
+      id: `${fire}-${i}`,
+      left: Math.random() * 100,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      dur: 2.2 + Math.random() * 1.8,
+      delay: Math.random() * 0.5,
+      rot: Math.random() * 360,
+    })))
+    const t = setTimeout(() => setPieces([]), 4800)
+    return () => clearTimeout(t)
+  }, [fire])
+  if (!pieces.length) return null
+  return (
+    <div className="confetti" aria-hidden="true">
+      {pieces.map(p => (
+        <i key={p.id} style={{ left: `${p.left}%`, background: p.color, animationDuration: `${p.dur}s`,
+          animationDelay: `${p.delay}s`, transform: `rotate(${p.rot}deg)` }} />
+      ))}
+    </div>
+  )
+}
+
+const PIPE = [
+  ['COLLECT', '📥', 'Collect'], ['DETECT', '🔍', 'Detect'], ['VERIFY', '✅', 'Verify'],
+  ['DECIDE', '⚖️', 'Decide'], ['ACT', '🛠️', 'Act'], ['LOG', '📜', 'Log'],
+]
+
+// Lights up PayFix's six steps as they appear in this payment's audit trail.
+export function PipelineTracker({ events, status }) {
+  const seen = new Set((events || []).filter(e => !e.dry_run || e.step !== 'ACT').map(e => e.step))
+  if (seen.has('REFUND')) seen.add('ACT')
+  if ((events || []).length) seen.add('LOG')
+  const watching = !seen.size && ['pending', 'unknown'].includes(status)
+  let note
+  if (seen.has('ACT')) note = 'PayFix verified the money with the gateway and fixed this payment, exactly once.'
+  else if (seen.has('DETECT')) note = 'PayFix found a mismatch and is working on it…'
+  else if (watching) note = 'PayFix is watching this payment. If the confirmation gets lost, it steps in.'
+  else note = 'Portal and gateway agree. Nothing for PayFix to fix.'
+  return (
+    <div>
+      <div className={`tracker ${watching ? 'watching' : ''}`}>
+        {PIPE.map(([key, icon, label]) => (
+          <div key={key} className={`tstep ${seen.has(key) ? 'on' : ''} ${key === 'ACT' ? 'act' : ''}`}>
+            <div className="tdot">{icon}</div>
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+      <p className="tracker-note">{watching && <span className="live-dot" />}{note}</p>
+    </div>
+  )
+}

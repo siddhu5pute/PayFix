@@ -1,6 +1,7 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { engine, gateway, portal, rupees } from '../api.js'
-import { AuditTimeline, PortalHistory, StatusChip, usePoll } from '../components/ui.jsx'
+import { AuditTimeline, Confetti, PipelineTracker, PortalHistory, StatusChip, usePoll } from '../components/ui.jsx'
 
 const EXPLAIN = {
   created: 'Order is being created with the gateway.',
@@ -17,6 +18,13 @@ export default function StatusPage() {
   const [g] = usePoll(async () => (p?.razorpay_order_id ? gateway.order(p.razorpay_order_id) : null), 2500,
     [p?.razorpay_order_id])
   const [replay] = usePoll(() => engine.replay(txnId), 3000, [txnId])
+  const prevStatus = useRef(null)
+  const [celebrate, setCelebrate] = useState(0)
+  useEffect(() => {
+    const s = p?.status
+    if (s === 'paid' && prevStatus.current && prevStatus.current !== 'paid') setCelebrate(Date.now())
+    if (s) prevStatus.current = s
+  }, [p?.status])
 
   if (perr && !p) return <div className="card"><h2>Payment not found</h2><p className="muted">{perr.message}</p></div>
   if (!p) return <div className="card"><div className="spinner" /> Loading…</div>
@@ -28,6 +36,7 @@ export default function StatusPage() {
 
   return (
     <div className="status-layout">
+      <Confetti fire={celebrate} />
       <section className="card status-card">
         <div className="status-top">
           <div>
@@ -69,6 +78,11 @@ export default function StatusPage() {
         {disagree && <p className="muted small">Mismatch! PayFix will pick this up once it is older than MIN_AGE (so it never races the normal webhook).</p>}
         <h3>Portal status history</h3>
         <PortalHistory history={p.history} />
+      </section>
+
+      <section className="card span2">
+        <h3>PayFix at work on this payment</h3>
+        <PipelineTracker events={replay?.events} status={p.status} />
       </section>
 
       <section className="card span2">
