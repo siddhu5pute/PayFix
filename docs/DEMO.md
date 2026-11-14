@@ -33,7 +33,7 @@ Open three browser tabs:
 ### 3. Break it: the incident (60s)
 * Control room → turn **DROP_WEBHOOKS** ON.
 > "Webhooks can be lost, late or duplicated. The sandbox can't fail on command, so we drop them on purpose."
-* Pay fee → Pay → choose **📶 Pay, then lose connection**.
+* Pay fee → Pay. **Razorpay mode:** Netbanking → any bank → **Success** (the dropped webhook leaves the portal on PENDING). **MockPay mode:** choose **📶 Pay, then lose connection** (portal shows UNKNOWN).
 * Status page: **PORTAL SAYS UNKNOWN ≠ GATEWAY SAYS CAPTURED**.
 > "This is exactly the incident. Money is captured, but the portal doesn't know."
 * Wait about 20–30 s (or Control room → **⚡ Run reconciliation now**).
