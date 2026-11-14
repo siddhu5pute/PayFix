@@ -1,0 +1,18 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# node
+node_modules/
+dist/
+
+# test output
+tests/logs/*
+!tests/logs/.gitkeep

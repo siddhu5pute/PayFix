@@ -1,0 +1,138 @@
+# PayFix: one command starts everything.
+#   docker compose up --build            -> http://localhost:3000
+# Defaults run fully offline against MockPay (Razorpay-compatible). Put real Razorpay TEST keys
+# in .env (see .env.example) to use the real Razorpay sandbox instead.
+
+x-gateway-env: &gateway-env
+  RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_mockpay000001}
+  RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-mockpay_key_secret}
+  RAZORPAY_API_BASE: ${RAZORPAY_API_BASE:-http://mockpay:9000/v1}
+
+services:
+  portal-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD:-portal}
+      POSTGRES_DB: portal
+    volumes: [portal-db-data:/var/lib/postgresql/data]
+    ports: ["5434:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  engine-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: engine
+      POSTGRES_PASSWORD: ${ENGINE_DB_PASSWORD:-engine}
+      POSTGRES_DB: engine
+    volumes: [engine-db-data:/var/lib/postgresql/data]
+    ports: ["5435:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engine -d engine"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mockpay:
+    build: ./mockpay
+    environment:
+      <<: *gateway-env
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-mockpay_webhook_secret}
+      MOCKPAY_WEBHOOK_URL: http://portal-backend:8000/webhooks/razorpay
+    volumes: [mockpay-data:/data]
+    ports: ["9000:9000"]
+
+  portal-backend:
+    build:
+      context: .
+      dockerfile: portal/backend/Dockerfile
+    environment:
+      <<: *gateway-env
+      PORTAL_DATABASE_URL: postgresql://portal:${PORTAL_DB_PASSWORD:-portal}@portal-db:5432/portal
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-mockpay_webhook_secret}
+      GATEWAY_MODE: ${GATEWAY_MODE:-mock}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      ADMIN_KEY: ${ADMIN_KEY:-}
+      DROP_WEBHOOKS: ${DROP_WEBHOOKS:-false}
+      DELAY_WEBHOOK_SECONDS: ${DELAY_WEBHOOK_SECONDS:-0}
+      DUPLICATE_WEBHOOKS: ${DUPLICATE_WEBHOOKS:-false}
+    depends_on:
+      portal-db: {condition: service_healthy}
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  engine:
+    build:
+      context: .
+      dockerfile: engine/Dockerfile
+    environment:
+      <<: *gateway-env
+      ENGINE_DATABASE_URL: postgresql://engine:${ENGINE_DB_PASSWORD:-engine}@engine-db:5432/engine
+      PORTAL_INTERNAL_URL: http://portal-backend:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
+      RECON_INTERVAL_SECONDS: ${RECON_INTERVAL_SECONDS:-10}
+      MIN_AGE_SECONDS: ${MIN_AGE_SECONDS:-20}
+      ABANDON_AFTER_SECONDS: ${ABANDON_AFTER_SECONDS:-120}
+      DRY_RUN: ${DRY_RUN:-false}
+      DEMO_MODE: ${DEMO_MODE:-true}
+    depends_on:
+      engine-db: {condition: service_healthy}
+      portal-backend: {condition: service_healthy}
+    ports: ["8100:8100"]
+
+  frontend:
+    build: ./portal/frontend
+    depends_on: [portal-backend, engine, mockpay]
+    ports: ["3000:80"]
+
+  # ---- public tunnel for real Razorpay webhooks:   docker compose --profile razorpay up -d
+  #      the public URL is shown at http://localhost:4040
+  ngrok:
+    profiles: ["razorpay"]
+    image: ngrok/ngrok:3
+    command: ["http", "frontend:80", "--log", "stdout"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    depends_on: [frontend]
+    ports: ["4040:4040"]
+
+  # ---- proof tests:   docker compose --profile test run --rm tests
+  tests:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    environment:
+      TEST_PORTAL_DB_ADMIN_URL: postgresql://portal:${PORTAL_DB_PASSWORD:-portal}@portal-db:5432/portal
+      TEST_ENGINE_DB_ADMIN_URL: postgresql://engine:${ENGINE_DB_PASSWORD:-engine}@engine-db:5432/engine
+    volumes: ["./tests/logs:/repo/tests/logs"]
+    depends_on:
+      portal-db: {condition: service_healthy}
+      engine-db: {condition: service_healthy}
+
+  # ---- live end-to-end demo against the running stack:   docker compose --profile test run --rm e2e
+  e2e:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    command: ["python", "-u", "tests/e2e_demo.py"]
+    environment:
+      PORTAL_URL: http://portal-backend:8000
+      ENGINE_URL: http://engine:8100
+      MOCKPAY_URL: http://mockpay:9000
+    volumes: ["./tests/logs:/repo/tests/logs"]
+
+volumes:
+  portal-db-data:
+  engine-db-data:
+  mockpay-data:
